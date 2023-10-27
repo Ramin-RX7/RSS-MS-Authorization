@@ -7,7 +7,7 @@ from services import AccountsService
 
 
 
-router = APIRouter()
+router = APIRouter(prefix="/v1")
 jwt_object = JWTAuth()
 account_service = AccountsService()
 
