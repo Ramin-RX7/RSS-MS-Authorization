@@ -19,6 +19,9 @@ class AccountsService:
         return resp
 
     async def _request(self, url, data:dict):
-        async with httpx.AsyncClient() as client:
-            response = await client.post(f"{self.base_url}/{url}", data=data)
-            return response
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(f"{self.base_url}/{url}/", data=data)
+            return response.json()
+        except Exception as e:
+            return Result.fill_error(e)
