@@ -66,8 +66,8 @@ class Result(BaseModel):
     error: Error|None
 
     def __init__(self, __status, **data):
-        self.status = __status
-        return super().__init__(**data)
+        # self.status = __status
+        return super().__init__(status=__status, **data)
 
     def __bool__(self):
         return self.status
@@ -75,6 +75,14 @@ class Result(BaseModel):
     def model_dump(self, **kwargs):
         excludes = ["error"] if self.error is not None else ["data"]
         return super().model_dump(exclude=excludes, **kwargs)
+
+    @classmethod
+    def fill_error(cls, exc:Exception):
+        return cls(False, error=Error(
+            type=type(exc).__name__,
+            message=str(exc)
+        ))
+
 
     class Config:
         extra = "allow"
