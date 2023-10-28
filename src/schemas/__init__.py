@@ -2,6 +2,7 @@ import re
 
 from pydantic import BaseModel,Field,validator
 
+from .base import *
 from auth.validators import password_validator,username_validator
 from auth.jwt_auth.jwt_auth import JWTAuthBackend
 
@@ -47,42 +48,3 @@ class RefreshToken(BaseModel):
         assert prefix == JWTAuthBackend.authentication_header_prefix, "invalid prefix"
         assert len(token.split(".")) == 3, "invalid token"
 AccessToken = RefreshToken
-
-
-class Error(BaseModel):
-    type : str
-    message : str
-
-    class Config:
-        extra = "allow"
-
-    def __bool__(self):
-        return False
-
-
-class Result(BaseModel):
-    status: bool = Field(True, alias="__status")   #? Should this be True|Error
-    data: dict = {}
-    error: Error|None
-
-    def __init__(self, __status, **data):
-        # self.status = __status
-        return super().__init__(status=__status, **data)
-
-    def __bool__(self):
-        return self.status
-
-    def model_dump(self, **kwargs):
-        excludes = ["error"] if self.error is not None else ["data"]
-        return super().model_dump(exclude=excludes, **kwargs)
-
-    @classmethod
-    def fill_error(cls, exc:Exception):
-        return cls(False, error=Error(
-            type=type(exc).__name__,
-            message=str(exc)
-        ))
-
-
-    class Config:
-        extra = "allow"
