@@ -1,9 +1,9 @@
-
-from fastapi import Request,Depends,HTTPException
+from fastapi import Request,Depends,HTTPException,Header
 
 import jwt
 
 from .utils import decode_jwt,generate_tokens
+from schemas import Result
 from .exceptions import *
 
 
@@ -11,41 +11,33 @@ from .exceptions import *
 
 
 class JWTAuth:
-    def __init__(self):
-        self.auth = JWTAuthBackend()
-
-    async def __call__(self, request:Request):
-        try:
-            username = self.auth.authenticate(request)
-            # user = await get_user(username)
-            return True
-        except Exception as e:
-            print(str(e))
-            raise HTTPException(403, "error occured!")
-        else:
-            if user is None:
-                raise HTTPException(403,"User not found")
-            return user
-
-    async def get_new_access(self, refresh_token, user_agent):
-        jti, access, refresh = await self.auth.get_new_tokens(refresh_token, user_agent)
-        return {
-            "access_token": access,
-            "refresh_token": refresh
-        }
-
-
-
-class JWTAuthBackend:
     authentication_header_prefix = 'Token'
     authentication_header_name = 'Authorization'
 
-    def authenticate(self, access_token, user_agent):
+    def __init__(self):
+        ...
+
+    async def __call__(self, request:Request):
+        username = await self.authenticate(request)
+        # user = await get_user(username)
+        return Result()
+
+    async def authenticate(self, request):
+        access_token = self._get_access_token(request)
         payload = self._validate_access_token(access_token)
         user = self._get_user(payload)
         jti = payload.get('jti')
         # self._validate_cache_data(user, jti, user_agent)
         return user#, payload
+
+    async def get_new_tokens(self, refresh_token, user_agent):
+        print(type(refresh_token))
+        payload = self._get_refresh_payload(refresh_token)
+        username = self._get_user(payload)
+        jti = payload.get('jti')
+        # self._validate_cache_data(user, jti, user_agent)
+        # self._deprecate_refresh_token(user, jti, user_agent)
+        return generate_tokens(username)
 
 
     def _get_user_agent(self, headers):
@@ -67,10 +59,9 @@ class JWTAuthBackend:
         try:
             return decode_jwt(token)
         except jwt.ExpiredSignatureError:
-            raise AccessTokenExpired('Access token expired') from None
+            raise HTTPException(401,'Access token expired') from None
         except jwt.DecodeError:
-            raise
-            raise ParseError("invalid access token")
+            raise HTTPException(403, "invalid access token")
 
     def _get_user(self, payload):
         username = payload.get("username")
@@ -82,18 +73,6 @@ class JWTAuthBackend:
             raise PermissionDenied('Not Found in cache, login again.')
         if user_redis_jti != agent:
             raise PermissionDenied('Invalid refresh token, please login again.')
-
-
-
-
-    def get_new_tokens(self, refresh_token, user_agent):
-        payload = self._get_refresh_payload(refresh_token)
-        user = self._get_user(payload)
-        jti = payload.get('jti')
-        self._validate_cache_data(user, jti, user_agent)
-        self.deprecate_refresh_token(user, jti, user_agent)
-        return generate_tokens(user.username)
-
 
 
     def _get_refresh_token(self, request):
@@ -109,9 +88,8 @@ class JWTAuthBackend:
             raise PermissionDenied(
                 'Expired refresh token, please login again.') from None
         except jwt.DecodeError:
-            raise ParseError("invalid refresh token")
+            raise
+            raise HTTPException(403,"invalid refresh token")
 
-    def deprecate_refresh_token(self, user, jti, user_agent):
+    def _deprecate_refresh_token(self, user, jti, user_agent):
         auth_cache.delete(f"{user.id}|{jti}")
-
-
