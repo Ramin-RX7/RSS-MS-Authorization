@@ -22,7 +22,16 @@ async def signup(user_data:Signup):
 @router.post('/login/')
 async def login(user_data: Login):
     # send login req to `accounts`
-    return await account_service.login(user_data)
+    res = await account_service.login(user_data)
+    if res:
+        # Generate tokens
+        jti,access,refresh = generate_tokens(user_data.username)
+        return {
+            "access_token": access,
+            "refresh_token": refresh
+        }
+    # error occured
+    return res
 
 
 @router.post('/refresh/')
