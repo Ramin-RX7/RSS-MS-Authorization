@@ -4,7 +4,7 @@ from pydantic import BaseModel,Field,validator
 
 from .base import *
 from auth.validators import password_validator,username_validator
-from auth.jwt_auth.jwt_auth import JWTAuthBackend
+from auth.jwt_auth.jwt_auth import JWTAuth
 
 
 
@@ -37,7 +37,7 @@ class Login(BaseModel):
 
 
 
-class RefreshToken(BaseModel):
+class AccessToken(BaseModel):
     token : str
 
     @validator("token")
@@ -45,6 +45,15 @@ class RefreshToken(BaseModel):
         splited = value.split(" ")
         assert len(splited) == 2, "prefix missing"
         prefix,token = splited
-        assert prefix == JWTAuthBackend.authentication_header_prefix, "invalid prefix"
+        assert prefix == JWTAuth.authentication_header_prefix, "invalid prefix"
         assert len(token.split(".")) == 3, "invalid token"
-AccessToken = RefreshToken
+        return value
+
+
+class RefreshToken(BaseModel):
+    token : str
+
+    @validator("token")
+    def token_validator(cls, value):
+        assert len(value.split(".")) == 3, "invalid token"
+        return value
