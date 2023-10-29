@@ -26,19 +26,11 @@ async def login(user_data: Login):
 
 
 @router.post('/refresh/')
-async def refresh(token: RefreshToken, user_agent: str = Header(None)):
+async def refresh(token:RefreshToken, user_agent:str=Header(None)):
     # Decode refresh token to generate new access token
-    await jwt_object.refresh(token.token, user_agent)
+    jti,access,refresh = await jwt_object.get_new_tokens(token.token, user_agent)
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+    }
 
-
-async def authenticate(request:Request, token:AccessToken):
-    try:
-        user = jwt_object(request)
-    except AccessTokenExpired as e:
-        return Result(False).model_dump()
-    except Exception as e:
-        return Result(False, error={
-            "type": type(e).__name__,
-            "message": str(e)
-        })
-    return Result().model_dump()
