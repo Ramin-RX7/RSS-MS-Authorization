@@ -1,7 +1,8 @@
-from fastapi import APIRouter,Header,Request,HTTPException
+from fastapi import APIRouter,Header,Depends
 
-from schemas import Signup,Login,Result,RefreshToken,AccessToken,Error
-from auth.jwt_auth.jwt_auth import JWTAuth,AccessTokenExpired
+from schemas import Signup,Login,RefreshToken
+from auth.jwt_auth.jwt_auth import JWTAuth
+from auth.jwt_auth.utils import generate_tokens
 from services import AccountsService
 
 
