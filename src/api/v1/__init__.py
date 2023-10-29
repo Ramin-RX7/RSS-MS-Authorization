@@ -16,7 +16,10 @@ account_service = AccountsService()
 @router.post("/signup/")
 async def signup(user_data:Signup):
     # Send signup req to `accounts`
-    return await account_service.signup(user_data)
+    resp = await account_service.signup(user_data)
+    if resp:
+        ...
+    return resp.model_dump()
 
 
 @router.post('/login/')
