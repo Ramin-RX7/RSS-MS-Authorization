@@ -1,17 +1,17 @@
-import os
 from pydantic_settings import BaseSettings
 
 
 
-class _Config(BaseSettings):
-    MONGODB_URL : str = os.environ.get("MONGODB_URL")
+class _Settings(BaseSettings):
+    ACCOUNTS_SERVICE_API_KEY : str
+    ACCOUNTS_SERVICE_BASE_URL : str
 
-    ACCOUNTS_SERVICE_API_KEY :str = os.environ.get("ACCOUNTS_SERVICE_API_KEY")
-    ACCOUNTS_SERVICE_BASE_URL : str= os.environ.get("ACCOUNTS_SERVICE_BASE_URL")
+    REDIS_URL : str
+    REDIS_KEY_TTL : int
 
     class Config:
-        env_file = ".env"
+        # env_file = ".env"
         extra = "ignore"
 
 
-SETTINGS = _Config()
+SETTINGS = _Settings()
