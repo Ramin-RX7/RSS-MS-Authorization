@@ -24,12 +24,13 @@ async def signup(user_data:Signup):
 
 
 @router.post('/login/')
-async def login(user_data: Login):
+async def login(user_data: Login, user_agent:str=Header()):
     # send login req to `accounts`
     res = await account_service.login(user_data)
     if res:
         # Generate tokens
         jti,access,refresh = generate_tokens(user_data.username)
+        await jwt_object.auth_cache.set(f"{user_data.username}|{jti}", user_agent)
         return {
             "access_token": access,
             "refresh_token": refresh
