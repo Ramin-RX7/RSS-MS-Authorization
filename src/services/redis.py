@@ -21,7 +21,8 @@ class RedisService:
         )
 
     async def get(self, key:str):
-        return await self.client.get(key)
+        result = await self.client.get(key)
+        return result.decode() if result else None
 
     async def keys(self, pattern:str):
         return await self.client.keys(pattern)
