@@ -1,10 +1,10 @@
 import re
 
-from pydantic import BaseModel,Field,validator
+from pydantic import BaseModel,validator
 
 from .base import *
 from auth.validators import password_validator,username_validator
-from auth.jwt_auth.jwt_auth import JWTAuth
+# from auth.jwt_auth.jwt_auth import JWTAuth
 
 
 
@@ -45,7 +45,7 @@ class AccessToken(BaseModel):
         splited = value.split(" ")
         assert len(splited) == 2, "prefix missing"
         prefix,token = splited
-        assert prefix == JWTAuth.authentication_header_prefix, "invalid prefix"
+        assert prefix == "Token", "invalid prefix"
         assert len(token.split(".")) == 3, "invalid token"
         return value
 
