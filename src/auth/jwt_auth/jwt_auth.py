@@ -26,29 +26,29 @@ class JWTAuth:
     async def authenticate(self, request):
         access_token = self._get_access_token(request)
         payload = self._validate_access_token(access_token)
-        user = self._get_user(payload)
+        user = await self._get_user(payload)
         jti = payload.get('jti')
         user_agent = self._get_user_agent(request.headers)
-        self._validate_cache_data(user, jti, user_agent)
+        await self._validate_cache_data(user, jti, user_agent)
         return user#, payload
 
     async def get_new_tokens(self, refresh_token, user_agent):
         print(type(refresh_token))
         payload = self._get_refresh_payload(refresh_token)
-        username = self._get_user(payload)
+        username = await self._get_user(payload)
         jti = payload.get('jti')
         await self._validate_cache_data(username, jti, user_agent)
         await self._deprecate_refresh_token(username, jti, user_agent)
         return generate_tokens(username)
 
 
-    async def _get_user_agent(self, headers):
+    def _get_user_agent(self, headers):
         user_agent = headers.get("user-agent")
         if user_agent is None:
             raise PermissionDenied('user-agent header is not provided')
         return user_agent
 
-    async def _get_access_token(self, request):
+    def _get_access_token(self, request):
         auth_header = request.headers.get(self.authentication_header_name)
         if not auth_header:
             raise PermissionDenied("No access token")
@@ -57,7 +57,7 @@ class JWTAuth:
             raise PermissionDenied('Token prefix missing')
         return full_token[1]
 
-    async def _validate_access_token(self, token):
+    def _validate_access_token(self, token):
         try:
             return decode_jwt(token)
         except jwt.ExpiredSignatureError:
@@ -65,12 +65,12 @@ class JWTAuth:
         except jwt.DecodeError:
             raise HTTPException(403, "invalid access token")
 
-    def _get_user(self, payload):
+    async def _get_user(self, payload):
         username = payload.get("username")
         return username
 
     async def _validate_cache_data(self, user, jti, agent):
-        user_redis_jti = await self.auth_cache.get(f"{user.id}|{jti}")
+        user_redis_jti = await self.auth_cache.get(f"{user}|{jti}")
         if user_redis_jti is None:
             raise PermissionDenied('Not Found in cache, login again.')
         if user_redis_jti != agent:
@@ -94,4 +94,4 @@ class JWTAuth:
             raise HTTPException(403,"invalid refresh token")
 
     async def _deprecate_refresh_token(self, user, jti, user_agent):
-        await self.auth_cache.delete(f"{user.id}|{jti}")
+        await self.auth_cache.delete(f"{user}|{jti}")
