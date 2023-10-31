@@ -5,13 +5,13 @@ from config.settings import SETTINGS
 
 
 class RedisService:
-    def __init__(self, url:str=None) -> None:
+    def __init__(self, url:str=None, **kwargs) -> None:
         """Creates connection to Redis client (async)
 
         Args:
             url (str): url of redis instance (requires complete url containing auth and db (if needed))
         """
-        self.client = aioredis.from_url(url or SETTINGS.REDIS_URL)
+        self.client = aioredis.from_url(url or SETTINGS.REDIS_URL, **kwargs)
 
     async def set(self, key:str, value:str, ttl:int|None=None):
         await self.client.set(
