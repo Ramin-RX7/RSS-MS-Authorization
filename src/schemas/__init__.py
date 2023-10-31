@@ -42,6 +42,9 @@ class Login(BaseModel):
         return value
 
 
+class JWTPayload(BaseModel):
+    email : str
+    payload : dict
 
 
 class AccessToken(BaseModel):
