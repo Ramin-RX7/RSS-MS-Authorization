@@ -14,10 +14,10 @@ class RedisService:
         self.client = aioredis.from_url(url or SETTINGS.REDIS_URL)
 
     async def set(self, key:str, value:str, ttl:int|None=None):
-        await self.client.setex(
+        await self.client.set(
             name = key,
             value = value,
-            time = ttl or SETTINGS.REDIS_KEY_TTL
+            ex = ttl or SETTINGS.REDIS_KEY_TTL
         )
 
     async def get(self, key:str):
@@ -29,3 +29,6 @@ class RedisService:
 
     async def new_client(self, url):
         self.clinet = aioredis.from_url(url or SETTINGS.REDIS_URL)
+
+    async def delete(self, *keys):
+        return await self.client.delete(*keys)
