@@ -32,8 +32,15 @@ class Signup(BaseModel):
 
 
 class Login(BaseModel):
-    username : str
+    # username : str
+    email : str
     password : str
+
+    @validator("email")
+    def email_validator(cls, value):
+        assert re.fullmatch(r'\w+@\w+\.\w+', value)
+        return value
+
 
 
 
