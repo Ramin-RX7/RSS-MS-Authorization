@@ -2,7 +2,7 @@ from fastapi import Request,HTTPException
 
 import jwt
 
-from schemas import Result
+from schemas import Result,JWTPayload
 from services import RedisService
 from .utils import (
     decode_jwt,
@@ -57,7 +57,7 @@ class JWTHandler:
             "refresh": refresh
         }
 
-    async def authenticate(self, request:Request) -> str:
+    async def authenticate(self, request:Request) -> JWTPayload:
         """Main method of this class which is responsible to authenticate users with their access token
 
         Args:
@@ -66,7 +66,7 @@ class JWTHandler:
 
         Returns:
         --------
-        `str`: email of the user
+        `JWT_Scheme`: jwt scheme object built from payload
         """
         payload = await self.jwt_object.authenticate(request.headers)
         email = payload.get("user_identifier")
@@ -75,7 +75,7 @@ class JWTHandler:
             payload.get("jti"),
             request.headers.get("user-agent")
         )
-        return email
+        return JWTPayload(payload)
     __call__ = authenticate
 
     async def refresh(self, refresh_token:str, user_agent:str):

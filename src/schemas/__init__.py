@@ -46,6 +46,9 @@ class JWTPayload(BaseModel):
     email : str
     payload : dict
 
+    class Config:
+        extra = "ignore"
+
 
 class AccessToken(BaseModel):
     token : str
