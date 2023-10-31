@@ -16,67 +16,69 @@ from .exceptions import PermissionDenied
 
 
 
+class JWTHandler:
+    """
+    This class is used to take place as JWT authentication handler.
 
-class JWTAuth:
-    """JWT authentication class
+    It will stands between user and server to authenticate users via their tokens.
 
-    generates and validates access/refresh tokens of users.
-
-    Attributes:
-    -----------
-    - auth_cache (`RedisService`): Used to interact with Redis to validate token request
-
-    Methods:
-    --------
-    - sync: `generate_tokens`,
-    - async: `get_new_tokens`,
+    This class needs to take place between redis and JWT authentication package to \
+     complete jwt token validation
 
     Usage:
     ------
-    ```python
-    jwt_object = JWTAuth()
 
-    @app.get("/some-protected-route/")
-    async def my_protected_route(username:str=Depends(jwt_object))
+    jwt_handler = JWTHandler()
+
+    @app.get("/protected-url")
+    async def protected_url(email=Depends(jwt_handler)):
         ...
-    ```
     """
-    authentication_header_prefix = 'Token'
-    authentication_header_name = 'Authorization'
-
     def __init__(self):
+        self.jwt_object = JWTAuth()
         self.auth_cache = RedisService()
 
-    async def __call__(self, request:Request) -> Result:
-        await self._authenticate(request)
-        # user = await get_user(username)
-        return Result()
-
-    async def _authenticate(self, request:Request):
-        """Used for complete validation of access token
-
-        Steps:
-        - validate given header of access token
-        - validate given value of access token
-        - check jti still exists in redis
+    async def login(self, email:str, user_agent:str) -> dict[str,str]:
+        """used when user has given correct credentials and new token must be generated for them.
 
         Args:
         -----
-        - request `(Request)`: _Received request from user_
+        - email `(str)`: _email of the user_
+        - user_agent `(str)`: _http user-agent header_
 
         Returns:
         --------
-        `str`: _username of request user_
+        `dict[str,str]`: dictionary of {'access':<ACCESS_TOKEN>, 'refresh':<REFRESH_TOKEN>}
         """
-        access_token = self._get_access_token(request)
-        payload = self._validate_access_token(access_token)
-        user = await self._get_user(payload)
-        jti = payload.get('jti')
-        user_agent = self._get_user_agent(request.headers)
-        await self._validate_cache_data(user, jti, user_agent)
-        return user#, payload
+        jti, access, refresh = self.jwt_object.generate_tokens(email)
+        await self.jwt_object.auth_cache.set(f"{email}|{jti}", user_agent)
+        return {
+            "access": access,
+            "refresh": refresh
+        }
 
-    async def get_new_tokens(self, refresh_token:str, user_agent:str):
+    async def authenticate(self, request:Request) -> str:
+        """Main method of this class which is responsible to authenticate users with their access token
+
+        Args:
+        -----
+        - request `(Request)`: _Http request of current request_
+
+        Returns:
+        --------
+        `str`: email of the user
+        """
+        payload = await self.jwt_object.authenticate(request.headers)
+        email = payload.get("user_identifier")
+        await self._validate_cache_data(
+            email,
+            payload.get("jti"),
+            request.headers.get("user-agent")
+        )
+        return email
+    __call__ = authenticate
+
+    async def refresh(self, refresh_token:str, user_agent:str):
         """Must be used when Http:401 status code is raised
         (which means access token is expired so refresh token must be used)
 
@@ -85,7 +87,7 @@ class JWTAuth:
         - validate refresh token
         - validate jti with redis
         - deprecate jti saved in redis
-        - generate new tokens (using self.generate_tokens)
+        - generate new tokens (using self.login)
 
         Args:
         -----
@@ -96,31 +98,91 @@ class JWTAuth:
         --------
         `tuple[str, str, str]`: returns tuple of: jti, access token, refresh token
         """
-        payload = self._get_refresh_payload(refresh_token)
-        username = await self._get_user(payload)
-        jti = payload.get('jti')
-        await self._validate_cache_data(username, jti, user_agent)
-        await self._deprecate_refresh_token(username, jti, user_agent)
-        return self.generate_tokens(username)
+        payload = self.jwt_object._get_refresh_payload(refresh_token)
+        email = payload.get("user_identifier")
+        jti = payload.get("jti")
+        await self._validate_cache_data(email, jti, user_agent)
+        await self.auth_cache.delete(f"{email}|{jti}")
+        return await self.login(email,user_agent)
 
-    def generate_tokens(self, username:str) -> tuple[str,str,str]:
-        """Used to generate tokens for user manually
-
-        Normally it is called alone only when user logins with username and password.
+    async def logout(self, email, jti):
+        """Used when user logs out so their data need to be deleted from redis
 
         Args:
         -----
-        - username `(str)`: _username of the user_
+        - email `(str)`: _email of the user_
+        - jti `(str)`: _jti of the user token payload_
+        """
+        await self.auth_cache.delete(f"{email}|{jti}")
+
+    async def _validate_cache_data(self, email, jti, user_agent):
+        user_redis_jti = await self.auth_cache.get(f"{email}|{jti}")
+        if user_redis_jti is None:
+            raise PermissionDenied('Not Found in cache, login again.')
+        if user_redis_jti != user_agent:
+            raise PermissionDenied('Invalid refresh token, please login again.')
+
+
+
+class JWTAuth:
+    # BUG: payload structure is based on this class (instead of `JWTHandler` class)
+    # BUG: header_prefix/header_name are based on this class(instead of `JWTHandler`)
+    """JWT authentication class
+
+    generates and validates access/refresh tokens of users.
+
+    Usage:
+    ------
+    ```python
+    jwt_object = JWTAuth()
+
+    jwt_object.authenticate(request.headers)
+    # Either raised error because of invalid access token or returns the payload
+    """
+    authentication_header_prefix = 'Token'
+    authentication_header_name = 'Authorization'
+
+    def __init__(self):
+        self.auth_cache = RedisService()
+
+
+    async def authenticate(self, headers):
+        """Used for complete validation of access token (checking headers and token)
+
+        Args:
+        -----
+        - headers `(dict)`: _dictionary of all http request headers_
+
+        Returns:
+        --------
+        `dict[str,Any]`: _payload that is saved in access token_
+        """
+        access_token = self._get_access_token(headers)
+        payload = self._validate_access_token(access_token)
+        user = payload.get("user_identifier")
+        jti = payload.get('jti')
+        user_agent = self._get_user_agent(headers)
+        await self._validate_cache_data(user, jti, user_agent)
+        return payload
+
+
+    def generate_tokens(self, account_identifier:str) -> tuple[str,str,str]:
+        """Used to generate tokens for user manually
+
+        Normally it is called alone only when user logins with user identifier and password.
+
+        Args:
+        -----
+        - account_identifier `(str)`: _identifier of the user_
 
         Returns:
         --------
         `tuple[str,str,str]`: returns tuple of jti, access token, refresh token
         """
-        base_payload = _generate_payload(username)
+        base_payload = _generate_payload(account_identifier)
         access_payload = _generate_access_token(base_payload)
         refresh_payload = _generate_refresh_token(base_payload)
         return (base_payload["jti"], encode_payload(access_payload), encode_payload(refresh_payload))
-
 
 
     def _get_user_agent(self, headers):
@@ -143,12 +205,12 @@ class JWTAuth:
             raise PermissionDenied('user-agent header is not provided')
         return user_agent
 
-    def _get_access_token(self, request):
+    def _get_access_token(self, headers):
         """Retrieves access token from authorization headers and validates the prefix
 
         Args:
         -----
-        - request `(Request)`: _request send by user_
+        - headers `(dict)`: _request http headers_
 
         Raises:
         - PermissionDenied: when `self.authentication_header_name` is not given
@@ -158,7 +220,7 @@ class JWTAuth:
         --------
         `str`: access token
         """
-        auth_header = request.headers.get(self.authentication_header_name)
+        auth_header = headers.get(self.authentication_header_name)
         if not auth_header:
             raise PermissionDenied("No access token")
         full_token = auth_header.split(' ')
@@ -171,7 +233,7 @@ class JWTAuth:
 
         Args:
         -----
-        - token `(str)`: _token retrievd from auth headers_
+        - token `(str)`: _token retrievd from http headers_
 
         Raises:
         - HTTPException (401): _When access token is expired_
@@ -187,39 +249,6 @@ class JWTAuth:
             raise HTTPException(401,'Access token expired') from None
         except jwt.DecodeError:
             raise HTTPException(403, "invalid access token")
-
-    async def _get_user(self, payload):
-        """Gets username from token retrieved payload
-
-        Args:
-        -----
-        - payload `(dict)`: _decoded payload from a token_
-
-        Returns:
-        --------
-        `str`: returns username retrieved from payload
-        """
-        username = payload.get("username")
-        return username
-
-    async def _validate_cache_data(self, username:str, jti:str, user_agent:str):
-        """Checks if redis contains data of the user
-
-        Args:
-        -----
-        - user `(str)`: _username of user_
-        - jti `(str)`: _jti taken from token payload_
-        - agent `(str)`: _request user-agent header value_
-
-        Raises:
-        - PermissionDenied: _when jti is not found in redis_
-        - PermissionDenied: _when refresh token is taken from another device/browser_
-        """
-        user_redis_jti = await self.auth_cache.get(f"{username}|{jti}")
-        if user_redis_jti is None:
-            raise PermissionDenied('Not Found in cache, login again.')
-        if user_redis_jti != user_agent:
-            raise PermissionDenied('Invalid refresh token, please login again.')
 
     def _get_refresh_payload(self, token:str):
         """Retrieves decoded payload of refresh
@@ -242,15 +271,5 @@ class JWTAuth:
             raise PermissionDenied(
                 'Expired refresh token, please login again.') from None
         except jwt.DecodeError:
-            raise
+            # raise
             raise HTTPException(403,"invalid refresh token")
-
-    async def _deprecate_refresh_token(self, username:str, jti:str, user_agent:str):
-        """Removes refresh token from redis cache"""
-        await self.auth_cache.delete(f"{username}|{jti}")
-
-    async def _save_cache(self, username:str, jti:str, user_agent:str):
-        """Saves new data to redis cache"""
-        key = f"{username}|{jti}"
-        value = f"{user_agent}"
-        await self.auth_cache.set(key,value)
