@@ -78,3 +78,14 @@ async def refresh(token:RefreshToken, user_agent:str=Header(None)) -> dict[str, 
         "refresh_token": refresh,
     }
 
+
+@router.post('/logout',)
+async def logout(jwt:JWTPayload=Depends(jwt_object)):
+    """(requires jwt) logout
+
+    Returns:
+    --------
+    `Result`: empty Result object
+    """
+    await jwt_object.logout(jwt.email, jwt.payload.get("jti"))
+    return Response()
