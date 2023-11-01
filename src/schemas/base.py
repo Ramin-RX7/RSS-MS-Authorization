@@ -14,7 +14,7 @@ class Error(BaseModel):
 
 
 class Result(BaseModel):
-    status: bool = Field(True)   #? Should this be True|Error
+    status: bool|None = Field(True)   #? Should this be True|Error
     data: dict = {}
     error: Error|None = None
 
@@ -23,7 +23,7 @@ class Result(BaseModel):
         return super().__init__(status=__status, **data)
 
     def __bool__(self):
-        return self.status
+        return bool(self.status)
 
     def model_dump(self, **kwargs):
         excludes = ["error"] if (self.error is None) else ["data"]
