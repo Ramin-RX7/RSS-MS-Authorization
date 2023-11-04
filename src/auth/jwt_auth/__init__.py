@@ -1,1 +1,1 @@
-from .jwt_auth import *
+from .jwt_auth import JWTHandler
