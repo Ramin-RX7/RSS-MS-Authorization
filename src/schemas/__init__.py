@@ -3,6 +3,7 @@ import re
 from pydantic import BaseModel,validator
 
 from .base import *
+from .jwt import *
 from auth.validators import password_validator,username_validator
 # from auth.jwt_auth.jwt_auth import JWTAuth
 
@@ -41,13 +42,6 @@ class Login(BaseModel):
         assert re.fullmatch(r'\w+@\w+\.\w+', value)
         return value
 
-
-class JWTPayload(BaseModel):
-    email : str
-    payload : dict
-
-    class Config:
-        extra = "ignore"
 
 
 class AccessToken(BaseModel):
