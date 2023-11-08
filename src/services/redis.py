@@ -11,7 +11,12 @@ class RedisService:
         Args:
             url (str): url of redis instance (requires complete url containing auth and db (if needed))
         """
-        self.client = aioredis.from_url(url or SETTINGS.REDIS_URL, **kwargs)
+        self.client = aioredis.from_url(
+            url or SETTINGS.REDIS_URL,
+            decode_responses=True,
+            encoding="utf-8",
+            **kwargs
+        )
 
     async def set(self, key:str, value:str, ttl:int|None=None):
         await self.client.set(
@@ -22,7 +27,7 @@ class RedisService:
 
     async def get(self, key:str):
         result = await self.client.get(key)
-        return result.decode() if result else None
+        return result
 
     async def keys(self, pattern:str):
         return await self.client.keys(pattern)
