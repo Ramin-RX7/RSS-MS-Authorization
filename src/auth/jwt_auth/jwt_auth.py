@@ -75,7 +75,7 @@ class JWTHandler:
             payload.get("jti"),
             request.headers.get("user-agent")
         )
-        return JWTPayload(payload)
+        return JWTPayload(id=id, payload=payload)
     __call__ = authenticate
 
     async def refresh(self, refresh_token:str, user_agent:str):
@@ -163,7 +163,6 @@ class JWTAuth:
         user = payload.get("user_identifier")
         jti = payload.get('jti')
         user_agent = self._get_user_agent(headers)
-        await self._validate_cache_data(user, jti, user_agent)
         return payload
 
 
@@ -251,7 +250,7 @@ class JWTAuth:
         except jwt.DecodeError:
             raise HTTPException(403, "invalid access token")
 
-    def _get_refresh_payload(self, token:str):
+    def _get_refresh_payload(self, token:str) -> dict:
         """Retrieves decoded payload of refresh
 
         Args:
