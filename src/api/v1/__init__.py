@@ -31,7 +31,7 @@ async def signup(user_data:Signup):
     resp = await account_service.signup(user_data)
     if resp:
         return JSONResponse(resp.data, 201)
-    return JSONResponse(resp.error.model_dump(), 400 if resp.status is False  else 500)
+    return JSONResponse(resp.error, 400 if resp.status is False  else 500)
 
 
 @router.post('/login/')
@@ -49,13 +49,13 @@ async def login(user_data: Login, user_agent:str=Header()):
     """
     res = await account_service.login(user_data)
     if res:
-        user_email = res["data"]["email"]
-        access,refresh = await jwt_object.login(user_email, user_agent)
+        user = res.data["user"]
+        tokens = await jwt_object.login(user["id"], user_agent)
         return {
-            "access_token": access,
-            "refresh_token": refresh
+            "access_token": tokens["access"],
+            "refresh_token": tokens["refresh"]
         }
-    return JSONResponse(res.error.model_dump(), 400 if res.status is False  else 500)
+    return JSONResponse(res.error, 400 if res.status is False  else 500)
 
 
 @router.post('/refresh/')
@@ -72,10 +72,10 @@ async def refresh(token:RefreshToken, user_agent:str=Header(None)):
     --------
     `JsonResponse` (201): _If token and user_agent are correct, access_token and refresh_token will be returned_
     """
-    access,refresh = await jwt_object.refresh(token.token, user_agent)
+    tokens = await jwt_object.refresh(token.token, user_agent)
     return JSONResponse({
-        "access_token": access,
-        "refresh_token": refresh,
+        "access_token": tokens["access"],
+        "refresh_token": tokens["refresh"],
     }, 201)
 
 
@@ -87,5 +87,5 @@ async def logout(jwt:JWTPayload=Depends(jwt_object)):
     --------
     `Result`: empty Result object
     """
-    await jwt_object.logout(jwt.email, jwt.payload.get("jti"))
-    return JSONResponse(Result(), 202)
+    await jwt_object.logout(jwt.id, jwt.payload.get("jti"))
+    return JSONResponse(Result().model_dump(), 202)
