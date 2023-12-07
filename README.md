@@ -24,7 +24,7 @@ This microservice is responsible to handle `authorization` section of the `RSS-F
 
 ## Setup
 
-Docker file to start the project is placed inside the main repo directory. Though it's better to read more about how to deploy all `RSS-Feed` microservices together in [RSS-Feed docs](https://github.com/Ramin-RX7/RSS-Feed/tree/develop/docs/microservices/microservices.md).
+Docker file to start the project is placed inside the main repo directory. Though it's better to read more about how to deploy all `RSS-Feed` microservices together in [RSS-Feed docs](https://github.com/Ramin-RX7/RSS-Feed/tree/develop/docs/microservices/README.md).
 
 
 
